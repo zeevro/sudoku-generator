@@ -1,4 +1,5 @@
 import random
+import statistics
 
 
 class Matrix9x9:
@@ -162,11 +163,35 @@ class Sudoku(Matrix9x9):
 
     @property
     def grade(self):
-        pass
+        m = statistics.mean(
+            [self._cells.count(d) for d in range(1, 10)] +
+            [len(list(filter(None, self.get_row(y)))) for y in range(9)] +
+            [len(list(filter(None, self.get_column(x)))) for x in range(9)] +
+            [len(list(filter(None, self.get_box(b)))) for b in range(9)]
+        )
+        return int((1 - (m / 9)) * 120)
 
     @classmethod
     def random(cls):
         return cls().solve(use_random=True)
+
+    @classmethod
+    def generate_puzzle(cls, min_grade, parent=None):
+        b = parent or cls.random()
+
+        while 1:
+            nb = cls(b)
+            nb[random.randint(0, 8), random.randint(0, 8)] = None
+            print(nb)
+            print(f'Grade: {nb.grade}')
+            if nb.only_one_solution():
+                break
+            print('No single solution. Backtrack.')
+
+        if b.grade >= min_grade:
+            return b
+
+        return cls.generate_puzzle(min_grade, nb)
 
 
 def main():
@@ -174,6 +199,10 @@ def main():
     # for b in Sudoku().solutions_iter(True):
     #     print(b)
     # return
+    b = Sudoku.generate_puzzle(90)
+    print(b)
+    print(f'Grade: {b.grade}')
+    return
     x = None
     b = Sudoku([x, 8, x, x, 1, 5, x, x, x] +
                [6, x, x, x, 9, 2, x, x, 8] +
@@ -185,11 +214,7 @@ def main():
                [2, x, x, 8, 6, x, x, x, 5] +
                [x, x, x, 9, 2, x, x, 8, x])
     print(b)
-                # print(f'{len(list(nb.solutions_iter()))} solutions')
-    return
-    for n, solution in enumerate(b.solutions_iter(), 1):
-        print(f'Solution #{n}:')
-        print(solution)
+    print(f'Grade: {b.grade}')
 
 
 if __name__ == "__main__":
