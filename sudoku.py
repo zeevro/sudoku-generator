@@ -5,80 +5,12 @@ class BoardError(Exception):
     pass
 
 
-class Board:
-    def __init__(self, init=None):
-        if init is None:
-            self._cells = [None] * 81
-        elif isinstance(init, Board):
-            self._cells = init._cells.copy()
-        elif isinstance(init, (list, tuple)):
-            self._cells = init.copy()
-            self._check_board()
-        else:
-            raise ValueError('Bad init value')
-
-    @staticmethod
-    def _gen_rand():
-        get_next = lambda: random.SystemRandom().randint(1, 9)
-        used = set()
-        while len(used) < 9:
-            if (n := get_next()) in used:
-                continue
-            used.add(n)
-            yield n
-
-    @staticmethod
-    def _idx(x, y):
-        assert 0 <= x <= 8
-        assert 0 <= y <= 8
-        return 9 * y + x
-
-    def __getitem__(self, c):
-        return self._cells[self._idx(*c)]
-
-    def _check_board(self):
-        for y in range(0, 72, 9):
-            row = list(filter(None, self._cells[y:y + 9]))
-            if len(row) != len(set(row)):
-                raise BoardError('duplicate value in row {}'.format(y // 9 + 1))
-
-        for x in range(9):
-            col = list(filter(None, self._cells[x::9]))
-            if len(col) != len(set(col)):
-                raise BoardError('duplicate value in column {}'.format(x + 1))
-
-        for b in range(0, 54, 27):
-            box = sum((list(filter(None, self._cells[i:i + 3])) for i in range(b, b + 27, 9)), [])
-            if len(box) != len(set(box)):
-                raise BoardError('duplicate value in box {}'.format(b / 27))
-
-    def _check_value(self, val, x, y):
-        if not val:
-            return
-
-        row_start = y * 9
-        if val in self._cells[row_start:row_start + 9]:
-            raise BoardError('duplicate value in row {} ({})'.format(y + 1, val))
-        if val in self._cells[x::9]:
-            raise BoardError('duplicate value in column {} ({})'.format(x + 1, val))
-        bx = (x // 3) * 3
-        by = (y // 3) * 3
-        for cy in range(by, by + 3):
-            i = self._idx(bx, cy)
-            if val in self._cells[i:i + 3]:
-                raise BoardError('duplicate value in box {} ({})'.format(i // 27 + 1, val))
-
-    def __setitem__(self, c, val):
-        if (not isinstance(val, (int, None))) or (val is not None and (1 > val or val > 9)):
-            raise ValueError('Value must be 1~9 or None')
-        assert val is None or 1 <= val <= 9
-
-        self._check_value(val, *c)
-
-        self._cells[self._idx(*c)] = val
+class Matrix9x9:
+    def __init__(self):
+        self._cells = [None] * 81
 
     def __str__(self):
-        # return '\n'.join(''.join(str(self[x, y] or '.') for x in range(9)) for y in range(9))
+        #return '\n'.join(''.join(str(self[x, y] or '.') for x in range(9)) for y in range(9))
         ret = '╔═══╤═══╤═══╦═══╤═══╤═══╦═══╤═══╤═══╗\n'
         for i in range(0, 81, 9):
             sep = iter('││║' * 3)
@@ -90,6 +22,94 @@ class Board:
             else:
                 ret += '╟───┼───┼───╫───┼───┼───╫───┼───┼───╢\n'
         return ret
+
+    @staticmethod
+    def _idx(x, y):
+        assert 0 <= x <= 8
+        assert 0 <= y <= 8
+        return 9 * y + x
+
+    def __getitem__(self, xy):
+        return self._cells[self._idx(*xy)]
+
+    def __setitem__(self, xy, val):
+        self._cells[self._idx(*xy)] = val
+
+    def get_row(self, y):
+        return self._cells[9 * y:9 * (y + 1)]
+
+    def get_column(self, x):
+        return self._cells[x::9]
+
+
+class Sudoku(Matrix9x9):
+    @staticmethod
+    def _rand_gen():
+        get_next = lambda: random.SystemRandom().randint(1, 9)
+        used = set()
+        while len(used) < 9:
+            if (n := get_next()) in used:
+                continue
+            used.add(n)
+            yield n
+
+    def __init__(self, init=None):
+        if init is None:
+            self._cells = [None] * 81
+        elif isinstance(init, Sudoku):
+            self._cells = init._cells.copy()
+        elif isinstance(init, (list, tuple)):
+            self._cells = init.copy()
+            self._check_board()
+        else:
+            raise ValueError('Bad init value')
+
+    def get_box(self, n):
+        i = n % 3 * 3 + n // 3 * 27
+        return sum((self._cells[i+k*9:i+k*9+3] for k in range(3)), [])
+
+    @staticmethod
+    def get_box_number(x, y):
+        return x // 3 + y // 3 * 3
+
+    def _check_board(self):
+        for y in range(9):
+            row = list(filter(None, self.get_row(y)))
+            if len(row) != len(set(row)):
+                raise BoardError('duplicate value in row {}'.format(y + 1))
+
+        for x in range(9):
+            col = list(filter(None, self.get_column(x)))
+            if len(col) != len(set(col)):
+                raise BoardError('duplicate value in column {}'.format(x + 1))
+
+        for b in range(9):
+            box = list(filter(None, self.get_box(b)))
+            if len(box) != len(set(box)):
+                raise BoardError('duplicate value in box {}'.format(b + 1))
+
+    def _check_value(self, val, x, y):
+        if not val:
+            return
+
+        if val in self.get_row(y):
+            raise BoardError('duplicate value in row {} ({})'.format(y + 1, val))
+
+        if val in self.get_column(x):
+            raise BoardError('duplicate value in column {} ({})'.format(x + 1, val))
+
+        bn = self.get_box_number(x, y)
+        if val in self.get_box(bn):
+            raise BoardError('duplicate value in box {} ({})'.format(bn + 1, val))
+
+    def __setitem__(self, xy, val):
+        if (not isinstance(val, (int, None))) or (val is not None and (1 > val or val > 9)):
+            raise ValueError('Value must be 1~9 or None')
+        assert val is None or 1 <= val <= 9
+
+        self._check_value(val, *xy)
+
+        super().__setitem__(xy, val)
 
     def empty_cells_iter(self):
         for y in range(9):
@@ -104,14 +124,14 @@ class Board:
             yield self
             return
 
-        gen = self._gen_rand() if use_random else range(1, 10)
+        gen = self._rand_gen() if use_random else range(1, 10)
         for n in gen:
-            b = Board(self)
+            b = Sudoku(self)
             try:
                 b[x, y] = n
-                yield from b.solutions_iter(use_random)
             except BoardError:
                 continue
+            yield from b.solutions_iter(use_random)
 
     def solve(self, use_random=False):
         try:
@@ -151,22 +171,23 @@ class Board:
 
 
 def main():
-    # print(Board.random())
-    for b in Board().solutions_iter(True):
-        print(b)
+    print(Sudoku.random())
+    # for b in Sudoku().solutions_iter(True):
+    #     print(b)
     return
     x = None
-    b = Board([x, 8, x, x, 1, 5, x, x, x] +
-              [6, x, x, x, 9, 2, x, x, 8] +
-              [3, x, x, 4, x, x, x, 6, x] +
-              [x, 9, 3, x, x, 6, x, x, 4] +
-              [x, 5, x, x, x, x, x, 2, x] +
-              [7, x, x, 5, x, x, 9, 1, x] +
-              [x, 6, x, x, x, 4, x, x, 2] +
-              [2, x, x, 8, 6, x, x, x, 5] +
-              [x, x, x, 9, 2, x, x, 8, x])
+    b = Sudoku([x, 8, x, x, 1, 5, x, x, x] +
+               [6, x, x, x, 9, 2, x, x, 8] +
+               [3, x, x, 4, x, x, x, 6, x] +
+               [x, 9, 3, x, x, 6, x, x, 4] +
+               [x, 5, x, x, x, x, x, 2, x] +
+               [7, x, x, 5, x, x, 9, 1, x] +
+               [x, 6, x, x, x, 4, x, x, 2] +
+               [2, x, x, 8, 6, x, x, x, 5] +
+               [x, x, x, 9, 2, x, x, 8, x])
     print(b)
-    print(b.solve())
+    for solution in b.solutions_iter():
+        print(solution)
 
 
 if __name__ == "__main__":
