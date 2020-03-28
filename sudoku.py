@@ -1,10 +1,6 @@
 import random
 
 
-class BoardError(Exception):
-    pass
-
-
 class Matrix9x9:
     def __init__(self):
         self._cells = [None] * 81
@@ -42,6 +38,10 @@ class Matrix9x9:
         return self._cells[x::9]
 
 
+class SudokuError(Exception):
+    pass
+
+
 class Sudoku(Matrix9x9):
     @staticmethod
     def _rand_gen():
@@ -76,36 +76,35 @@ class Sudoku(Matrix9x9):
         for y in range(9):
             row = list(filter(None, self.get_row(y)))
             if len(row) != len(set(row)):
-                raise BoardError('duplicate value in row {}'.format(y + 1))
+                raise SudokuError('duplicate value in row {}'.format(y + 1))
 
         for x in range(9):
             col = list(filter(None, self.get_column(x)))
             if len(col) != len(set(col)):
-                raise BoardError('duplicate value in column {}'.format(x + 1))
+                raise SudokuError('duplicate value in column {}'.format(x + 1))
 
         for b in range(9):
             box = list(filter(None, self.get_box(b)))
             if len(box) != len(set(box)):
-                raise BoardError('duplicate value in box {}'.format(b + 1))
+                raise SudokuError('duplicate value in box {}'.format(b + 1))
 
     def _check_value(self, val, x, y):
         if not val:
             return
 
         if val in self.get_row(y):
-            raise BoardError('duplicate value in row {} ({})'.format(y + 1, val))
+            raise SudokuError('duplicate value in row {} ({})'.format(y + 1, val))
 
         if val in self.get_column(x):
-            raise BoardError('duplicate value in column {} ({})'.format(x + 1, val))
+            raise SudokuError('duplicate value in column {} ({})'.format(x + 1, val))
 
         bn = self.get_box_number(x, y)
         if val in self.get_box(bn):
-            raise BoardError('duplicate value in box {} ({})'.format(bn + 1, val))
+            raise SudokuError('duplicate value in box {} ({})'.format(bn + 1, val))
 
     def __setitem__(self, xy, val):
-        if (not isinstance(val, (int, None))) or (val is not None and (1 > val or val > 9)):
+        if val is not None and (not isinstance(val, int)) or (val is not None and (1 > val or val > 9)):
             raise ValueError('Value must be 1~9 or None')
-        assert val is None or 1 <= val <= 9
 
         self._check_value(val, *xy)
 
@@ -129,7 +128,7 @@ class Sudoku(Matrix9x9):
             b = Sudoku(self)
             try:
                 b[x, y] = n
-            except BoardError:
+            except SudokuError:
                 continue
             yield from b.solutions_iter(use_random)
 
@@ -137,14 +136,14 @@ class Sudoku(Matrix9x9):
         try:
             return next(self.solutions_iter(use_random))
         except StopIteration:
-            raise BoardError('No solutions')
+            raise SudokuError('No solutions')
 
-    def ensure_single_solution(self):
+    def only_one_solution(self):
         g = self.solutions_iter()
         try:
             next(g)
         except StopIteration:
-            raise BoardError('No solutions')
+            raise SudokuError('No solutions')
 
         try:
             next(g)
@@ -157,7 +156,7 @@ class Sudoku(Matrix9x9):
     def solvable(self):
         try:
             self.solve()
-        except BoardError:
+        except SudokuError:
             return False
         return True
 
@@ -171,10 +170,10 @@ class Sudoku(Matrix9x9):
 
 
 def main():
-    print(Sudoku.random())
+    # print(Sudoku.random())
     # for b in Sudoku().solutions_iter(True):
     #     print(b)
-    return
+    # return
     x = None
     b = Sudoku([x, 8, x, x, 1, 5, x, x, x] +
                [6, x, x, x, 9, 2, x, x, 8] +
@@ -186,7 +185,10 @@ def main():
                [2, x, x, 8, 6, x, x, x, 5] +
                [x, x, x, 9, 2, x, x, 8, x])
     print(b)
-    for solution in b.solutions_iter():
+                # print(f'{len(list(nb.solutions_iter()))} solutions')
+    return
+    for n, solution in enumerate(b.solutions_iter(), 1):
+        print(f'Solution #{n}:')
         print(solution)
 
 
