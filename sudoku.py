@@ -178,11 +178,15 @@ class Sudoku(Matrix9x9):
     def grade(self):
         m = statistics.mean(
             [self._cells.count(d) for d in range(1, 10)] +
-            [len(list(filter(None, self.get_row(y)))) for y in range(9)] +
-            [len(list(filter(None, self.get_column(x)))) for x in range(9)] +
-            [len(list(filter(None, self.get_box(b)))) for b in range(9)]
+            [
+                statistics.mean(
+                    [len(list(filter(None, self.get_row(y)))) for y in range(9)] +
+                    [len(list(filter(None, self.get_column(x)))) for x in range(9)] +
+                    [len(list(filter(None, self.get_box(b)))) for b in range(9)]
+                )
+            ]
         )
-        return int((1 - (m / 9)) * 120)
+        return 1 - (m / 9)
 
     @classmethod
     def random(cls):
@@ -212,7 +216,7 @@ def main():
     # for b in Sudoku().solutions_iter(True):
     #     print(b)
     # return
-    b = Sudoku.generate_puzzle(90)
+    b = Sudoku.generate_puzzle(1)
     print(b)
     print(f'Grade: {b.grade}')
     return
