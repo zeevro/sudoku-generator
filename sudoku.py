@@ -1,4 +1,3 @@
-import contextlib
 import random
 import statistics
 
@@ -49,12 +48,9 @@ class Sudoku(Matrix9x9):
     def _number_gen(choices=None, randomize=False):
         choices = list(choices or [1, 2, 3, 4, 5, 6, 7, 8, 9])
         if randomize:
-            rnd = random.SystemRandom()
-            while choices:
-                yield choices.pop(rnd.randint(0, len(choices) - 1))
-        else:
-            while choices:
-                yield choices.pop(0)
+            choices.sort(key=lambda x: random.SystemRandom().random())
+        while choices:
+            yield choices.pop(0)
 
     def __init__(self, init=None):
         if init is None:
@@ -109,7 +105,7 @@ class Sudoku(Matrix9x9):
             raise SudokuError('duplicate value in box {} ({})'.format(bn + 1, val))
 
     def __setitem__(self, xy, val):
-        if val is not None and (not isinstance(val, int)) or (val is not None and (1 > val or val > 9)):
+        if val is not None and (not isinstance(val, int)) or (val is not None and (val < 1 or val > 9)):
             raise ValueError('Value must be 1~9 or None')
 
         self._check_value(val, *xy)
@@ -186,13 +182,13 @@ class Sudoku(Matrix9x9):
                 cur -= 1
 
     def solve(self, randomize=False):
-        try:
-            return next(self.solutions_iter(randomize))
-        except StopIteration:
-            raise SudokuError('No solutions')
+        for solution in self.solutions_iter(randomize):
+            return solution
+        raise SudokuError('No solutions')
 
     def only_one_solution(self):
         g = self.solutions_iter()
+
         try:
             next(g)
         except StopIteration:
@@ -251,15 +247,21 @@ class Sudoku(Matrix9x9):
 
 
 def main():
-    # print(Sudoku.random())
-    # return
-    # for b in Sudoku().solutions_iter(True):
-    #     print(b)
-    # return
-    b = Sudoku.generate_puzzle(1)
-    print(b)
-    print(f'Grade: {b.grade}')
-    return
+    if 0:
+        print(Sudoku.random())
+        return
+
+    if 0:
+        for b in Sudoku().solutions_iter(randomize=True):
+            print(b)
+        return
+
+    if 0:
+        b = Sudoku.generate_puzzle(1)
+        print(b)
+        print(f'Grade: {b.grade}')
+        return
+
     x = None
     b = Sudoku([x, 8, x, x, 1, 5, x, x, x] +
                [6, x, x, x, 9, 2, x, x, 8] +
@@ -272,6 +274,7 @@ def main():
                [x, x, x, 9, 2, x, x, 8, x])
     print(b)
     print(f'Grade: {b.grade}')
+    print(b.solve())
 
 
 if __name__ == "__main__":
