@@ -1,3 +1,4 @@
+import contextlib
 import random
 import statistics
 
@@ -115,7 +116,7 @@ class Sudoku(Matrix9x9):
 
         super().__setitem__(xy, val)
 
-    def _possible_values(self, x, y):
+    def possible_values(self, x, y):
         return ({1, 2, 3, 4, 5, 6, 7, 8, 9}
                 .difference(
                     self.get_row(y) +
@@ -132,19 +133,57 @@ class Sudoku(Matrix9x9):
                     yield (x, y)
 
     def solutions_iter(self, randomize=False):
-        try:
-            x, y = next(self.empty_cells_iter())
-        except StopIteration:
+        # Make a list of all holes and their possible values
+        # sorted by number of possible values
+        # [ [] (x, y), possible_values, generator ], ... ]
+        possibles = []
+        for x, y in self.empty_cells_iter():
+            pv = self.possible_values(x, y)
+            possibles.append([
+                (x, y),
+                pv,
+                None,
+            ])
+
+        # No holes - solved board
+        if not possibles:
             yield self
             return
 
-        for n in self._number_gen(self._possible_values(x, y), randomize):
-            b = Sudoku(self)
-            try:
-                b[x, y] = n
-            except SudokuError:
+        possibles = list(sorted(possibles, key=lambda x: len(x[1])))
+
+        # A hole can hold no value - unsolvable board
+        if not possibles[0][1]:
+            return
+
+        # Copy board for solving
+        b = Sudoku(self)
+
+        cur = 0
+
+        while cur >= 0:
+            p = possibles[cur]
+            (x, y), pv, gen = p
+            if gen is None:
+                gen = self._number_gen(b.possible_values(x, y), randomize)
+                p[2] = gen
+
+            for n in gen:
+                try:
+                    b[x, y] = n
+                except SudokuError:
+                    continue
+                cur += 1
+                break
+            else:
+                b[x, y] = None
+                p[2] = None
+                cur -= 1
                 continue
-            yield from b.solutions_iter(randomize)
+
+            if cur == len(possibles):
+                yield b
+                cur -= 1
 
     def solve(self, randomize=False):
         try:
@@ -213,6 +252,7 @@ class Sudoku(Matrix9x9):
 
 def main():
     # print(Sudoku.random())
+    # return
     # for b in Sudoku().solutions_iter(True):
     #     print(b)
     # return
