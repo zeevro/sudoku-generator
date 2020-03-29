@@ -45,14 +45,15 @@ class SudokuError(Exception):
 
 class Sudoku(Matrix9x9):
     @staticmethod
-    def _rand_gen():
-        get_next = lambda: random.SystemRandom().randint(1, 9)
-        used = set()
-        while len(used) < 9:
-            if (n := get_next()) in used:
-                continue
-            used.add(n)
-            yield n
+    def _number_gen(choices=None, randomize=False):
+        choices = list(choices or [1, 2, 3, 4, 5, 6, 7, 8, 9])
+        if randomize:
+            rnd = random.SystemRandom()
+            while choices:
+                yield choices.pop(rnd.randint(0, len(choices) - 1))
+        else:
+            while choices:
+                yield choices.pop(0)
 
     def __init__(self, init=None):
         if init is None:
@@ -72,6 +73,9 @@ class Sudoku(Matrix9x9):
     @staticmethod
     def get_box_number(x, y):
         return x // 3 + y // 3 * 3
+
+    def get_box_xy(self, x, y):
+        return self.get_box(self.get_box_number(x, y))
 
     def _check_board(self):
         for y in range(9):
@@ -111,31 +115,40 @@ class Sudoku(Matrix9x9):
 
         super().__setitem__(xy, val)
 
+    def _possible_values(self, x, y):
+        return ({1, 2, 3, 4, 5, 6, 7, 8, 9}
+                .difference(
+                    self.get_row(y) +
+                    self.get_column(x) +
+                    self.get_box_xy(x, y)
+                )
+                .union([self[x, y]])
+                .difference([None]))
+
     def empty_cells_iter(self):
         for y in range(9):
             for x in range(9):
                 if not self[x, y]:
                     yield (x, y)
 
-    def solutions_iter(self, use_random=False):
+    def solutions_iter(self, randomize=False):
         try:
             x, y = next(self.empty_cells_iter())
         except StopIteration:
             yield self
             return
 
-        gen = self._rand_gen() if use_random else range(1, 10)
-        for n in gen:
+        for n in self._number_gen(self._possible_values(x, y), randomize):
             b = Sudoku(self)
             try:
                 b[x, y] = n
             except SudokuError:
                 continue
-            yield from b.solutions_iter(use_random)
+            yield from b.solutions_iter(randomize)
 
-    def solve(self, use_random=False):
+    def solve(self, randomize=False):
         try:
-            return next(self.solutions_iter(use_random))
+            return next(self.solutions_iter(randomize))
         except StopIteration:
             raise SudokuError('No solutions')
 
@@ -173,7 +186,7 @@ class Sudoku(Matrix9x9):
 
     @classmethod
     def random(cls):
-        return cls().solve(use_random=True)
+        return cls().solve(randomize=True)
 
     @classmethod
     def generate_puzzle(cls, min_grade, parent=None):
